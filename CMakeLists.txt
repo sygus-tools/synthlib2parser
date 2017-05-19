@@ -12,6 +12,8 @@ else()
 endif()
 
 set(MY_LIBRARY_OUTPUT_PATH ${CMAKE_HOME_DIRECTORY}/lib/${CMAKE_BUILD_TYPE})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+
 
 ###############################################################################
 ## dependencies ###############################################################
@@ -42,7 +44,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "-ggdb3 -O0 -fno-inline" CACHE STRING
     "Flags used by the C++ compiler during debug builds."
     FORCE)
 
-set(CMAKE_CXX_FLAGS_OPT "-O3" CACHE STRING
+set(CMAKE_CXX_FLAGS_OPT "-O2 -g" CACHE STRING
     "Flags used by the C++ compiler during opt builds."
     FORCE)
 
