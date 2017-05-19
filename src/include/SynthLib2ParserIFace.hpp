@@ -1,4 +1,4 @@
-// SynthLib2ParserIFace.hpp --- 
+// SynthLib2ParserIFace.hpp ---
 // 
 // Filename: SynthLib2ParserIFace.hpp
 // Author: Abhishek Udupa
@@ -35,9 +35,6 @@
 // 
 // 
 
-// Code:
-
-
 #if !defined __SYNTH_LIB2_PARSER_IFACE_H
 #define __SYNTH_LIB2_PARSER_IFACE_H
 
@@ -55,7 +52,7 @@ namespace SynthLib2Parser {
     private:
         i32 LineNum;
         i32 ColNum;
-        
+
     public:
         SourceLocation(i32 LineNum, i32 ColNum);
         ~SourceLocation();
@@ -64,7 +61,7 @@ namespace SynthLib2Parser {
 
         i32 GetLineNum() const;
         i32 GetColNum() const;
-        
+
         string ToString() const;
 
         static SourceLocation None;
@@ -74,14 +71,14 @@ namespace SynthLib2Parser {
     {
     protected:
         SourceLocation Location;
-        
+
     public:
         ASTBase(const SourceLocation& Location);
         virtual ~ASTBase();
 
         // Accessors
         const SourceLocation& GetLocation() const;
-        
+
         // Abstract methods
         virtual void Accept(ASTVisitorBase* Visitor) const = 0;
         virtual ASTBase* Clone() const = 0;
@@ -95,13 +92,13 @@ namespace SynthLib2Parser {
 
     public:
         ArgSortPair(const SourceLocation& Location,
-                    const string& Name, 
+                    const string& Name,
                     const SortExpr* Sort);
         virtual ~ArgSortPair();
 
         void Accept(ASTVisitorBase* Visitor) const override;
         ASTBase* Clone() const override;
-        
+
         // Accessors
         const string& GetName() const;
         const SortExpr* GetSort() const;
@@ -126,7 +123,7 @@ namespace SynthLib2Parser {
     public:
         CheckSynthCmd(const SourceLocation& Location);
         virtual ~CheckSynthCmd();
-        
+
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
     };
@@ -140,7 +137,7 @@ namespace SynthLib2Parser {
         SetLogicCmd(const SourceLocation& Location,
                     const string& LogicName);
         virtual ~SetLogicCmd();
-        
+
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
 
@@ -155,13 +152,15 @@ namespace SynthLib2Parser {
         ArgList Arguments;
         const SortExpr* Type;
         Term* Def;
+        mutable SymbolTableScope* Scope;
 
     public:
-        FunDefCmd(const SourceLocation& Location, 
+        FunDefCmd(const SourceLocation& Location,
                   const string& FunSymbol,
                   const ArgList& FunArgs,
                   const SortExpr* FunType,
-                  Term* FunDef);
+                  Term* FunDef,
+                  SymbolTableScope* Scope);
 
         virtual ~FunDefCmd();
         virtual void Accept(ASTVisitorBase* Visitor) const override;
@@ -172,6 +171,9 @@ namespace SynthLib2Parser {
         const ArgList& GetArgs() const;
         const SortExpr* GetSort() const;
         Term* GetTerm() const;
+
+        SymbolTableScope* GetScope() const;
+        void SetScope(SymbolTableScope* Scope) const;
     };
 
     class FunDeclCmd : public ASTCmd
@@ -180,7 +182,7 @@ namespace SynthLib2Parser {
         string Symbol;
         vector<const SortExpr*> ArgTypes;
         const SortExpr* Type;
-        
+
     public:
         FunDeclCmd(const SourceLocation& Location,
                    const string& FunSymbol,
@@ -203,23 +205,27 @@ namespace SynthLib2Parser {
         ArgList Arguments;
         const SortExpr* FunType;
         vector<NTDef*> GrammarRules;
+        mutable SymbolTableScope* Scope;
 
     public:
         SynthFunCmd(const SourceLocation& Location,
                     const string& Name,
                     const ArgList& Args,
                     const SortExpr* FunType,
-                    const vector<NTDef*> GrammarRules);
+                    const vector<NTDef*> GrammarRules,
+                    SymbolTableScope* Scope);
         virtual ~SynthFunCmd();
 
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
-        
+
         // accessors
         const string& GetFunName() const;
         const ArgList& GetArgs() const;
         const SortExpr* GetSort() const;
         const vector<NTDef*>& GetGrammarRules() const;
+        void SetScope(SymbolTableScope* Scope) const;
+        SymbolTableScope* GetScope() const;
     };
 
     class ConstraintCmd : public ASTCmd
@@ -231,14 +237,14 @@ namespace SynthLib2Parser {
         ConstraintCmd(const SourceLocation& Location,
                       Term* TheTerm);
         virtual ~ConstraintCmd();
-        
+
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
-        
+
         // accessors
         Term* GetTerm() const;
     };
-    
+
     class SortDefCmd : public ASTCmd
     {
     private:
@@ -304,7 +310,7 @@ namespace SynthLib2Parser {
     public:
         SortExpr(const SourceLocation& Location,
                  SortKind Kind);
-        
+
         virtual ~SortExpr();
         SortKind GetKind() const;
 
@@ -381,7 +387,7 @@ namespace SynthLib2Parser {
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
         virtual string ToMangleString() const override;
-        
+
         // accessors
         const SortExpr* GetDomainSort() const;
         const SortExpr* GetRangeSort() const;
@@ -401,7 +407,7 @@ namespace SynthLib2Parser {
         virtual string ToMangleString() const override;
         virtual u32 Hash() const override;
     };
-    
+
     class FunSortExpr : public SortExpr
     {
     private:
@@ -480,13 +486,14 @@ namespace SynthLib2Parser {
         Literal(const SourceLocation& Location,
                 const string& Constructor,
                 SortExpr* Sort);
-        
+
         virtual ~Literal();
-        
+
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
+
+        const SortExpr* GetSort(const SymbolTable* SymTab) const;
         const string& GetLiteralString() const;
-        SortExpr* GetSort() const;
     };
 
     class Term : public ASTBase
@@ -496,10 +503,11 @@ namespace SynthLib2Parser {
 
     public:
         Term(const SourceLocation& Location, TermKind Kind);
-        
+
         virtual ~Term();
-        
+
         TermKind GetKind() const;
+        virtual const SortExpr* GetTermSort(SymbolTable* SymTab) const = 0;
     };
 
     class FunTerm : public Term
@@ -509,13 +517,14 @@ namespace SynthLib2Parser {
         vector<Term*> Args;
 
     public:
-        FunTerm(const SourceLocation& Location, 
+        FunTerm(const SourceLocation& Location,
                 const string& FunName,
                 const vector<Term*>& Args);
         virtual ~FunTerm();
 
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
+        virtual const SortExpr* GetTermSort(SymbolTable* SymTab) const override;
 
         // accessors
         const string& GetFunName() const;
@@ -534,10 +543,11 @@ namespace SynthLib2Parser {
 
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
+        virtual const SortExpr* GetTermSort(SymbolTable* SymTab) const override;
 
         // accessors
         Literal* GetLiteral() const;
-    }; 
+    };
 
     class SymbolTerm : public Term
     {
@@ -551,6 +561,7 @@ namespace SynthLib2Parser {
 
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
+        virtual const SortExpr* GetTermSort(SymbolTable* SymTab) const override;
 
         const string& GetSymbol() const;
     };
@@ -568,7 +579,7 @@ namespace SynthLib2Parser {
                        const SortExpr* VarSort,
                        Term* BoundToTerm);
         virtual ~LetBindingTerm();
-        
+
         void Accept(ASTVisitorBase* Visitor) const override;
         ASTBase* Clone() const override;
 
@@ -583,20 +594,24 @@ namespace SynthLib2Parser {
     private:
         vector<LetBindingTerm*> Bindings;
         Term* BoundInTerm;
+        mutable SymbolTableScope* Scope;
 
     public:
         LetTerm(const SourceLocation& Location,
                 const vector<LetBindingTerm*>& Bindings,
-                Term* BoundInTerm);
+                Term* BoundInTerm,
+                SymbolTableScope* Scope);
         virtual ~LetTerm();
 
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
-
+        virtual const SortExpr* GetTermSort(SymbolTable* SymTab) const override;
 
         // Accessors
         const vector<LetBindingTerm*>& GetBindings() const;
         Term* GetBoundInTerm() const;
+        void SetScope(SymbolTableScope* Scope) const;
+        SymbolTableScope* GetScope() const;
     };
 
     // TODO: uggh, this code is similar to Term, consider refactoring
@@ -609,8 +624,9 @@ namespace SynthLib2Parser {
         GTerm(const SourceLocation& Location,
               GTermKind Kind);
         virtual ~GTerm();
-        
+
         GTermKind GetKind() const;
+        virtual const SortExpr* GetTermSort(SymbolTable* SymTab) const = 0;
     };
 
     class SymbolGTerm : public GTerm
@@ -625,7 +641,8 @@ namespace SynthLib2Parser {
 
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
-        
+        virtual const SortExpr* GetTermSort(SymbolTable* SymTab) const override;
+
         // Accessors
         const string& GetSymbol() const;
     };
@@ -644,6 +661,7 @@ namespace SynthLib2Parser {
 
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
+        virtual const SortExpr* GetTermSort(SymbolTable* SymTab) const override;
 
         // Accessors
         const string& GetName() const;
@@ -662,6 +680,7 @@ namespace SynthLib2Parser {
 
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
+        virtual const SortExpr* GetTermSort(SymbolTable* SymTab) const override;
 
         Literal* GetLiteral() const;
     };
@@ -670,7 +689,7 @@ namespace SynthLib2Parser {
     {
     private:
         const SortExpr* ConstantSort;
-        
+
     public:
         ConstantGTerm(const SourceLocation& Location,
                       const SortExpr* Sort);
@@ -678,6 +697,7 @@ namespace SynthLib2Parser {
 
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
+        virtual const SortExpr* GetTermSort(SymbolTable* SymTab) const override;
 
         // accessor
         const SortExpr* GetSort() const;
@@ -697,12 +717,13 @@ namespace SynthLib2Parser {
 
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
+        virtual const SortExpr* GetTermSort(SymbolTable* SymTab) const override;
 
         // accessors
         const SortExpr* GetSort() const;
         VariableKind GetKind() const;
     };
-    
+
     class LetBindingGTerm : public ASTBase
     {
     private:
@@ -730,20 +751,25 @@ namespace SynthLib2Parser {
     private:
         vector<LetBindingGTerm*> Bindings;
         GTerm* BoundInTerm;
+        mutable SymbolTableScope* Scope;
 
     public:
         LetGTerm(const SourceLocation& Location,
                  const vector<LetBindingGTerm*>& Bindings,
-                 GTerm* BoundInTerm);
+                 GTerm* BoundInTerm,
+                 SymbolTableScope* Scope);
 
         virtual ~LetGTerm();
 
         virtual void Accept(ASTVisitorBase* Visitor) const override;
         virtual ASTBase* Clone() const override;
-        
+        virtual const SortExpr* GetTermSort(SymbolTable* SymTab) const override;
+
         // accessors
         const vector<LetBindingGTerm*>& GetBindings() const;
         GTerm* GetBoundInTerm() const;
+        void SetScope(SymbolTableScope* Scope) const;
+        SymbolTableScope* GetScope() const;
     };
 
     class NTDef : public ASTBase
@@ -792,7 +818,7 @@ namespace SynthLib2Parser {
     public:
         ASTVisitorBase(const string& Name);
         virtual ~ASTVisitorBase();
-        
+
         // Visit methods
         virtual void VisitProgram(const Program* Prog);
 
@@ -817,7 +843,7 @@ namespace SynthLib2Parser {
         virtual void VisitEnumSortExpr(const EnumSortExpr* Sort);
 
         virtual void VisitLetBindingTerm(const LetBindingTerm* Binding);
-        
+
         virtual void VisitFunTerm(const FunTerm* TheTerm);
         virtual void VisitLiteralTerm(const LiteralTerm* TheTerm);
         virtual void VisitSymbolTerm(const SymbolTerm* TheTerm);
@@ -844,7 +870,8 @@ namespace SynthLib2Parser {
     {
     private:
         Program* TheProgram;
-        
+        SymbolTable* TheSymbolTable;
+
         // type-state variable :-(
         bool ParseComplete;
 
@@ -853,11 +880,12 @@ namespace SynthLib2Parser {
         ~SynthLib2Parser();
 
         // The main parse action
-        void operator () (const string& Filename);
-        void operator () (FILE* Handle);
-        
+        void operator () (const string& Filename, bool Pedantic = false);
+        void operator () (FILE* Handle, bool Pedantic = false);
+
         // Accessors
         Program* GetProgram() const;
+        SymbolTable* GetSymbolTable() const;
     };
 
     // General vector of AST cloner
@@ -866,7 +894,7 @@ namespace SynthLib2Parser {
     {
         const u32 NumElems = Vec.size();
         vector<T> Retval(NumElems);
-        
+
         for(u32 i = 0; i < NumElems; ++i) {
             Retval[i] = static_cast<T>(Vec[i]->Clone());
         }
@@ -878,7 +906,3 @@ namespace SynthLib2Parser {
 } /* End namespace */
 
 #endif /* __SYNTH_LIB2_PARSER_IFACE_H */
-
-
-// 
-// SynthLib2ParserIFace.hpp ends here

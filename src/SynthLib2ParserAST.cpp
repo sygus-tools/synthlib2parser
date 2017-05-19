@@ -35,15 +35,12 @@
 // 
 // 
 
-// Code:
-
-
-#include "include/SynthLib2ParserIFace.hpp"
-#include "include/SynthLib2ParserExceptions.hpp"
-#include <algorithm>
+#include <SynthLib2ParserIFace.hpp>
+#include <SymbolTable.hpp>
 #include <boost/functional/hash.hpp>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/classification.hpp>
+#include <LogicSymbols.hpp>
+#include <SymtabBuilder.hpp>
+#include <PrintVisitor.hpp>
 
 namespace SynthLib2Bison {
     extern SynthLib2Parser::Program* TheProgram;
@@ -51,7 +48,6 @@ namespace SynthLib2Bison {
 
 extern FILE* yyin;
 extern int yyparse();
-extern void yylex_destroy();
 
 namespace SynthLib2Parser {
 
@@ -112,7 +108,7 @@ namespace SynthLib2Parser {
     {
         // Nothing here
     }
-    
+
     const SourceLocation& ASTBase::GetLocation() const
     {
         return Location;
@@ -131,12 +127,12 @@ namespace SynthLib2Parser {
         delete Sort;
     }
 
-    void ArgSortPair::Accept(ASTVisitorBase* Visitor) const 
+    void ArgSortPair::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitArgSortPair(this);
     }
 
-    ASTBase* ArgSortPair::Clone() const 
+    ASTBase* ArgSortPair::Clone() const
     {
         return new ArgSortPair(Location, Name, static_cast<const SortExpr*>(Sort->Clone()));
     }
@@ -195,7 +191,7 @@ namespace SynthLib2Parser {
     {
         // Nothing here
     }
-    
+
     SetLogicCmd::~SetLogicCmd()
     {
         // Nothing here
@@ -220,10 +216,11 @@ namespace SynthLib2Parser {
                          const string& FunSymbol,
                          const ArgList& FunArgs,
                          const SortExpr* FunType,
-                         Term* FunDef)
+                         Term* FunDef,
+                         SymbolTableScope* Scope)
         : ASTCmd(Location, CMD_FUNDEF),
           Symbol(FunSymbol), Arguments(FunArgs),
-          Type(FunType), Def(FunDef)
+          Type(FunType), Def(FunDef), Scope(Scope)
     {
         // Nothing here
     }
@@ -235,6 +232,7 @@ namespace SynthLib2Parser {
         }
         delete Type;
         delete Def;
+        delete Scope;
     }
 
     void FunDefCmd::Accept(ASTVisitorBase* Visitor) const
@@ -246,7 +244,8 @@ namespace SynthLib2Parser {
     {
         return new FunDefCmd(Location, Symbol, CloneVector(Arguments),
                              static_cast<const SortExpr*>(Type->Clone()),
-                             static_cast<Term*>(Def->Clone()));
+                             static_cast<Term*>(Def->Clone()),
+                             Scope->Clone());
     }
 
     const string& FunDefCmd::GetFunName() const
@@ -269,6 +268,15 @@ namespace SynthLib2Parser {
         return Def;
     }
 
+    void FunDefCmd::SetScope(SymbolTableScope* Scope) const
+    {
+        this->Scope = Scope;
+    }
+
+    SymbolTableScope* FunDefCmd::GetScope() const
+    {
+        return Scope;
+    }
 
     FunDeclCmd::FunDeclCmd(const SourceLocation& Location,
                            const string& FunSymbol,
@@ -295,11 +303,11 @@ namespace SynthLib2Parser {
 
     ASTBase* FunDeclCmd::Clone() const
     {
-        return new FunDeclCmd(Location, Symbol, CloneVector(ArgTypes), 
+        return new FunDeclCmd(Location, Symbol, CloneVector(ArgTypes),
                               static_cast<const SortExpr*>(Type->Clone()));
     }
 
-    const string& FunDeclCmd::GetFunName() const 
+    const string& FunDeclCmd::GetFunName() const
     {
         return Symbol;
     }
@@ -318,9 +326,11 @@ namespace SynthLib2Parser {
                              const string& Name,
                              const ArgList& Args,
                              const SortExpr* FunType,
-                             const vector<NTDef*> GrammarRules)
+                             const vector<NTDef*> GrammarRules,
+                             SymbolTableScope* Scope)
         : ASTCmd(Location, CMD_SYNTHFUN), SynthFunName(Name),
-          Arguments(Args), FunType(FunType), GrammarRules(GrammarRules)
+          Arguments(Args), FunType(FunType), GrammarRules(GrammarRules),
+          Scope(Scope)
     {
         // Nothing here
     }
@@ -336,6 +346,7 @@ namespace SynthLib2Parser {
             delete NonTerm;
         }
 
+        delete Scope;
     }
 
     void SynthFunCmd::Accept(ASTVisitorBase* Visitor) const
@@ -347,7 +358,7 @@ namespace SynthLib2Parser {
     {
         return new SynthFunCmd(Location, SynthFunName, CloneVector(Arguments),
                                static_cast<const SortExpr*>(FunType->Clone()),
-                               CloneVector(GrammarRules));
+                               CloneVector(GrammarRules), Scope->Clone());
     }
 
     const string& SynthFunCmd::GetFunName() const
@@ -369,7 +380,17 @@ namespace SynthLib2Parser {
     {
         return GrammarRules;
     }
-        
+
+    void SynthFunCmd::SetScope(SymbolTableScope* Scope) const
+    {
+        this->Scope = Scope;
+    }
+
+    SymbolTableScope* SynthFunCmd::GetScope() const
+    {
+        return Scope;
+    }
+
     ConstraintCmd::ConstraintCmd(const SourceLocation& Location, Term* TheTerm)
         : ASTCmd(Location, CMD_CONSTRAINT), TheTerm(TheTerm)
     {
@@ -573,11 +594,12 @@ namespace SynthLib2Parser {
 
     bool BVSortExpr::Equals(const SortExpr& Other) const
     {
-        auto OtherAsBVSort = dynamic_cast<const BVSortExpr*>(&Other);
-        if (OtherAsBVSort == nullptr) {
+        auto OtherPtr = dynamic_cast<const BVSortExpr*>(&Other);
+        if(OtherPtr == NULL) {
             return false;
+        } else {
+            return OtherPtr->Size == Size;
         }
-        return (Size == OtherAsBVSort->Size);
     }
 
     u32 BVSortExpr::Hash() const
@@ -603,7 +625,7 @@ namespace SynthLib2Parser {
         return ((string)"BV" + to_string(Size));
     }
 
-    u32 BVSortExpr::GetSize() const 
+    u32 BVSortExpr::GetSize() const
     {
         return Size;
     }
@@ -636,12 +658,12 @@ namespace SynthLib2Parser {
         }
     }
 
-    void NamedSortExpr::Accept(ASTVisitorBase* Visitor) const 
+    void NamedSortExpr::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitNamedSortExpr(this);
     }
 
-    ASTBase* NamedSortExpr::Clone() const 
+    ASTBase* NamedSortExpr::Clone() const
     {
         return new NamedSortExpr(Location, Name);
     }
@@ -651,7 +673,7 @@ namespace SynthLib2Parser {
         return boost::hash_value(Name);
     }
 
-    string NamedSortExpr::ToMangleString() const 
+    string NamedSortExpr::ToMangleString() const
     {
         throw SynthLib2ParserException("Internal: Tried to call NamedSortExpr::ToMangleString()");
     }
@@ -668,10 +690,10 @@ namespace SynthLib2Parser {
     {
         // Nothing here
     }
-    
+
     ArraySortExpr::ArraySortExpr(const SortExpr* DomainSort,
                                  const SortExpr* RangeSort)
-        : SortExpr(SourceLocation::None, SORTKIND_ARRAY), 
+        : SortExpr(SourceLocation::None, SORTKIND_ARRAY),
           DomainSort(DomainSort), RangeSort(RangeSort)
     {
         // Nothing here
@@ -683,7 +705,7 @@ namespace SynthLib2Parser {
         delete DomainSort;
     }
 
-    bool ArraySortExpr::Equals(const SortExpr& Other) const 
+    bool ArraySortExpr::Equals(const SortExpr& Other) const
     {
         auto OtherPtr = dynamic_cast<const ArraySortExpr*>(&Other);
         if(OtherPtr == NULL) {
@@ -693,7 +715,7 @@ namespace SynthLib2Parser {
                 RangeSort->Equals(*(OtherPtr->RangeSort)));
     }
 
-    void ArraySortExpr::Accept(ASTVisitorBase* Visitor) const 
+    void ArraySortExpr::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitArraySortExpr(this);
     }
@@ -707,18 +729,18 @@ namespace SynthLib2Parser {
         return (u32)Retval;
     }
 
-    ASTBase* ArraySortExpr::Clone() const 
+    ASTBase* ArraySortExpr::Clone() const
     {
         return new ArraySortExpr(Location, static_cast<const SortExpr*>(DomainSort->Clone()),
                                  static_cast<const SortExpr*>(RangeSort->Clone()));
     }
 
-    string ArraySortExpr::ToMangleString() const 
+    string ArraySortExpr::ToMangleString() const
     {
-        return ((string)"Array_" + RangeSort->ToMangleString() + 
+        return ((string)"Array_" + RangeSort->ToMangleString() +
                 "_of_" + DomainSort->ToMangleString());
     }
-                
+
     const SortExpr* ArraySortExpr::GetDomainSort() const
     {
         return DomainSort;
@@ -746,7 +768,7 @@ namespace SynthLib2Parser {
         // Nothing here
     }
 
-    bool RealSortExpr::Equals(const SortExpr& Other) const 
+    bool RealSortExpr::Equals(const SortExpr& Other) const
     {
         return (dynamic_cast<const RealSortExpr*>(&Other) != NULL);
     }
@@ -756,17 +778,17 @@ namespace SynthLib2Parser {
         return boost::hash_value((u32)GetKind());
     }
 
-    void RealSortExpr::Accept(ASTVisitorBase* Visitor) const 
+    void RealSortExpr::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitRealSortExpr(this);
     }
 
-    ASTBase* RealSortExpr::Clone() const 
+    ASTBase* RealSortExpr::Clone() const
     {
         return new RealSortExpr(Location);
     }
 
-    string RealSortExpr::ToMangleString() const 
+    string RealSortExpr::ToMangleString() const
     {
         return "Real";
     }
@@ -796,7 +818,7 @@ namespace SynthLib2Parser {
         delete RetSort;
     }
 
-    bool FunSortExpr::Equals(const SortExpr& Other) const 
+    bool FunSortExpr::Equals(const SortExpr& Other) const
     {
         auto OtherPtr = dynamic_cast<const FunSortExpr*>(&Other);
         if(OtherPtr == NULL) {
@@ -826,18 +848,18 @@ namespace SynthLib2Parser {
     return (u32)Retval;
     }
 
-    void FunSortExpr::Accept(ASTVisitorBase* Visitor) const 
+    void FunSortExpr::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitFunSortExpr(this);
     }
 
-    ASTBase* FunSortExpr::Clone() const 
+    ASTBase* FunSortExpr::Clone() const
     {
-        return new FunSortExpr(Location, CloneVector(ArgSorts), 
+        return new FunSortExpr(Location, CloneVector(ArgSorts),
                                static_cast<SortExpr*>(RetSort->Clone()));
     }
 
-    string FunSortExpr::ToMangleString() const 
+    string FunSortExpr::ToMangleString() const
     {
         string Retval;
         for(auto const& ArgSort : ArgSorts) {
@@ -868,18 +890,18 @@ namespace SynthLib2Parser {
     {
         // Nothing here
     }
-    
+
     BoolSortExpr::~BoolSortExpr()
     {
         // Nothing here
     }
 
-    void BoolSortExpr::Accept(ASTVisitorBase* Visitor) const 
+    void BoolSortExpr::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitBoolSortExpr(this);
     }
 
-    ASTBase* BoolSortExpr::Clone() const 
+    ASTBase* BoolSortExpr::Clone() const
     {
         return new BoolSortExpr(Location);
     }
@@ -889,12 +911,12 @@ namespace SynthLib2Parser {
         return boost::hash_value((u32)GetKind());
     }
 
-    bool BoolSortExpr::Equals(const SortExpr& Other) const 
+    bool BoolSortExpr::Equals(const SortExpr& Other) const
     {
         return (dynamic_cast<const BoolSortExpr*>(&Other) != NULL);
     }
 
-    string BoolSortExpr::ToMangleString() const 
+    string BoolSortExpr::ToMangleString() const
     {
         return "Bool";
     }
@@ -923,7 +945,7 @@ namespace SynthLib2Parser {
         // Nothing here
     }
 
-    bool EnumSortExpr::Equals(const SortExpr& Other) const 
+    bool EnumSortExpr::Equals(const SortExpr& Other) const
     {
         auto OtherPtr = dynamic_cast<const EnumSortExpr*>(&Other);
         if(OtherPtr == NULL) {
@@ -932,14 +954,14 @@ namespace SynthLib2Parser {
 
         return (EnumSortName == OtherPtr->EnumSortName &&
                 includes(EnumSortConstructorSet.begin(), EnumSortConstructorSet.end(),
-                         OtherPtr->EnumSortConstructorSet.begin(), 
+                         OtherPtr->EnumSortConstructorSet.begin(),
                          OtherPtr->EnumSortConstructorSet.end()) &&
                 includes(OtherPtr->EnumSortConstructorSet.begin(),
                          OtherPtr->EnumSortConstructorSet.end(),
                          EnumSortConstructorSet.begin(), EnumSortConstructorSet.end()));
     }
 
-    void EnumSortExpr::Accept(ASTVisitorBase* Visitor) const 
+    void EnumSortExpr::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitEnumSortExpr(this);
     }
@@ -955,12 +977,12 @@ namespace SynthLib2Parser {
         return (u32)Retval;
     }
 
-    ASTBase* EnumSortExpr::Clone() const 
+    ASTBase* EnumSortExpr::Clone() const
     {
         return new EnumSortExpr(Location, EnumSortName, EnumSortConstructorVec);
     }
 
-    string EnumSortExpr::ToMangleString() const 
+    string EnumSortExpr::ToMangleString() const
     {
         return ("EnumSort_" + EnumSortName);
     }
@@ -983,7 +1005,7 @@ namespace SynthLib2Parser {
     bool EnumSortExpr::IsConstructorValid(const string& ConstructorName) const
     {
         // Works only for unqualified constructors
-        return (EnumSortConstructorSet.find(ConstructorName) != 
+        return (EnumSortConstructorSet.find(ConstructorName) !=
                 EnumSortConstructorSet.end());
     }
 
@@ -992,7 +1014,7 @@ namespace SynthLib2Parser {
                      const string& Constructor,
                      SortExpr* Sort)
     : ASTBase(Location), LiteralString(Constructor),
-      LiteralSort(Sort)
+          LiteralSort(Sort)
     {
         // Nothing here
     }
@@ -1002,24 +1024,63 @@ namespace SynthLib2Parser {
         delete LiteralSort;
     }
 
-    void Literal::Accept(ASTVisitorBase* Visitor) const 
+    void Literal::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitLiteral(this);
     }
 
-    ASTBase* Literal::Clone() const 
+    ASTBase* Literal::Clone() const
     {
         return new Literal(Location, LiteralString, static_cast<SortExpr*>(LiteralSort->Clone()));
+    }
+
+    const SortExpr* Literal::GetSort(const SymbolTable* SymTab) const
+    {
+        if (LiteralSort != NULL) {
+            return LiteralSort;
+        } else {
+            // This must be an enum constant
+            // lookup the type of the enumerated type in the symbol table
+            vector<string> SplitVec;
+            boost::algorithm::split(SplitVec, LiteralString,
+                                    boost::algorithm::is_any_of(":"),
+                                    boost::algorithm::token_compress_on);
+            if (SplitVec.size() != 2) {
+                throw SynthLib2ParserException("Internal: Expected a well-formed enum literal");
+            }
+            auto const& EnumTypeName = SplitVec[0];
+            auto const& EnumConsName = SplitVec[1];
+
+            // Lookup the type in the symbol table
+            auto STE = SymTab->LookupSort(EnumTypeName);
+            if(STE == NULL || STE->GetKind() != STENTRY_SORT) {
+                throw SynthLib2ParserException((string)"Identifier \"" + EnumTypeName + "\" does not " +
+                                               "refer to an enumeration sort\n" +
+                                               Location.ToString());
+            }
+            // Resolve this sort
+            auto Sort = SymTab->ResolveSort(STE->GetSort());
+            if (Sort == NULL || Sort->GetKind() != SORTKIND_ENUM) {
+                throw SynthLib2ParserException((string)"Identifier \"" + EnumTypeName + "\" does not " +
+                                               "refer to an enumeration sort\n" +
+                                               Location.ToString());
+            }
+            // Check that the constructor is valid for the sort
+
+            if(!(dynamic_cast<const EnumSortExpr*>(Sort)->IsConstructorValid(EnumConsName))) {
+                throw SynthLib2ParserException((string)"Constructor \"" + EnumConsName + "\" is not " +
+                                               "a valid constructor for enumeration type \"" +
+                                               EnumTypeName + "\"" +
+                                               Location.ToString());
+            }
+            // return the enumeration sort
+            return Sort;
+        }
     }
 
     const string& Literal::GetLiteralString() const
     {
         return LiteralString;
-    }
-    
-    SortExpr* Literal::GetSort() const
-    {
-        return LiteralSort;
     }
 
     Term::Term(const SourceLocation& Location,
@@ -1054,14 +1115,46 @@ namespace SynthLib2Parser {
         }
     }
 
-    void FunTerm::Accept(ASTVisitorBase* Visitor) const 
+    void FunTerm::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitFunTerm(this);
     }
 
-    ASTBase* FunTerm::Clone() const 
+    ASTBase* FunTerm::Clone() const
     {
         return new FunTerm(Location, FunName, CloneVector(Args));
+    }
+
+    const SortExpr* FunTerm::GetTermSort(SymbolTable* SymTab) const
+    {
+        ostringstream SS;
+
+        // determine this function's sort from the symbol table
+        const u32 NumArgs = Args.size();
+        vector<const SortExpr*> ArgSorts(NumArgs);
+
+        for(u32 i = 0; i < NumArgs; ++i) {
+            ArgSorts[i] = Args[i]->GetTermSort(SymTab);
+        }
+
+        auto Entry = SymTab->LookupFun(FunName, ArgSorts);
+        if(Entry == NULL) {
+            SS.str("");
+            SS << "Could not determine type of term: "
+               << FunName << " in "
+               << *this << endl;
+            SS << "This could be due to an undeclared function or "
+               << "mismatched arguments to function" << endl;
+            SS << Location;
+            throw SynthLib2ParserException(SS.str());
+        }
+
+        auto FunSort = dynamic_cast<const FunSortExpr*>(Entry->GetSort());
+        if(FunSort == NULL) {
+            throw SynthLib2ParserException("Identifier \"" + FunName + "\" does " +
+                                           "not refer to an function, but used as one");
+        }
+        return FunSort->GetRetSort();
     }
 
     const string& FunTerm::GetFunName() const
@@ -1086,14 +1179,19 @@ namespace SynthLib2Parser {
         delete TheLiteral;
     }
 
-    void LiteralTerm::Accept(ASTVisitorBase* Visitor) const 
+    void LiteralTerm::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitLiteralTerm(this);
     }
 
-    ASTBase* LiteralTerm::Clone() const 
+    ASTBase* LiteralTerm::Clone() const
     {
         return new LiteralTerm(Location, static_cast<Literal*>(TheLiteral->Clone()));
+    }
+
+    const SortExpr* LiteralTerm::GetTermSort(SymbolTable* SymTab) const
+    {
+        return TheLiteral->GetSort(SymTab);
     }
 
     Literal* LiteralTerm::GetLiteral() const
@@ -1113,15 +1211,35 @@ namespace SynthLib2Parser {
         // Nothing here
     }
 
-    void SymbolTerm::Accept(ASTVisitorBase* Visitor) const 
+    void SymbolTerm::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitSymbolTerm(this);
     }
 
-    ASTBase* SymbolTerm::Clone() const 
+    ASTBase* SymbolTerm::Clone() const
     {
         return new SymbolTerm(Location, TheSymbol);
-    } 
+    }
+
+    const SortExpr* SymbolTerm::GetTermSort(SymbolTable* SymTab) const
+    {
+        auto Entry = SymTab->Lookup(TheSymbol);
+        if(Entry == NULL) {
+            throw SynthLib2ParserException("Could not resolve identifier \"" +
+                                           TheSymbol + "\"");
+        }
+
+        auto const SymSort = Entry->GetSort();
+        if(Entry->GetKind() == STENTRY_USER_FUNCTION ||
+           Entry->GetKind() == STENTRY_SYNTH_FUNCTION ||
+           Entry->GetKind() == STENTRY_THEORY_FUNCTION ||
+           Entry->GetKind() == STENTRY_UNINTERP_FUNCTION) {
+            auto SymFunSort = dynamic_cast<const FunSortExpr*>(SymSort);
+            return SymFunSort->GetRetSort();
+        } else {
+            return SymSort;
+        }
+    }
 
     const string& SymbolTerm::GetSymbol() const
     {
@@ -1132,7 +1250,7 @@ namespace SynthLib2Parser {
                                    const string& VarName,
                                    const SortExpr* VarSort,
                                    Term* BoundToTerm)
-        : ASTBase(Location), VarName(VarName), VarSort(VarSort), 
+        : ASTBase(Location), VarName(VarName), VarSort(VarSort),
           BoundToTerm(BoundToTerm)
     {
         // Nothing here
@@ -1155,7 +1273,7 @@ namespace SynthLib2Parser {
                                   static_cast<const SortExpr*>(VarSort->Clone()),
                                   static_cast<Term*>(BoundToTerm->Clone()));
     }
-    
+
     const string& LetBindingTerm::GetVarName() const
     {
         return VarName;
@@ -1173,10 +1291,12 @@ namespace SynthLib2Parser {
 
     LetTerm::LetTerm(const SourceLocation& Location,
                      const vector<LetBindingTerm*>& Bindings,
-                     Term* BoundInTerm)
+                     Term* BoundInTerm,
+                     SymbolTableScope* Scope)
         : Term(Location, TERMKIND_LET),
           Bindings(Bindings),
-          BoundInTerm(BoundInTerm)
+          BoundInTerm(BoundInTerm),
+          Scope(Scope)
     {
         // Nothing here
     }
@@ -1188,17 +1308,28 @@ namespace SynthLib2Parser {
         }
 
         delete BoundInTerm;
+        delete Scope;
     }
 
-    void LetTerm::Accept(ASTVisitorBase* Visitor) const 
+    void LetTerm::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitLetTerm(this);
     }
 
-    ASTBase* LetTerm::Clone() const 
+    ASTBase* LetTerm::Clone() const
     {
         return new LetTerm(Location, CloneVector(Bindings),
-                           static_cast<Term*>(BoundInTerm->Clone()));
+                           static_cast<Term*>(BoundInTerm->Clone()),
+                           Scope->Clone());
+    }
+
+    const SortExpr* LetTerm::GetTermSort(SymbolTable* SymTab) const
+    {
+        // push the scope onto the symbol table
+        SymTab->Push(Scope);
+        auto Retval = BoundInTerm->GetTermSort(SymTab);
+        SymTab->Pop();
+        return Retval;
     }
 
     const vector<LetBindingTerm*>& LetTerm::GetBindings() const
@@ -1209,6 +1340,16 @@ namespace SynthLib2Parser {
     Term* LetTerm::GetBoundInTerm() const
     {
         return BoundInTerm;
+    }
+
+    void LetTerm::SetScope(SymbolTableScope* Scope) const
+    {
+        this->Scope = Scope;
+    }
+
+    SymbolTableScope* LetTerm::GetScope() const
+    {
+        return Scope;
     }
 
     GTerm::GTerm(const SourceLocation& Location,
@@ -1222,7 +1363,7 @@ namespace SynthLib2Parser {
     {
         // Nothing here
     }
-    
+
     GTermKind GTerm::GetKind() const
     {
         return Kind;
@@ -1241,14 +1382,30 @@ namespace SynthLib2Parser {
         // Nothing here
     }
 
-    void SymbolGTerm::Accept(ASTVisitorBase* Visitor) const 
+    void SymbolGTerm::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitSymbolGTerm(this);
     }
 
-    ASTBase* SymbolGTerm::Clone() const 
+    ASTBase* SymbolGTerm::Clone() const
     {
         return new SymbolGTerm(Location, TheSymbol);
+    }
+
+    const SortExpr* SymbolGTerm::GetTermSort(SymbolTable* SymTab) const
+    {
+        auto Entry = SymTab->Lookup(TheSymbol);
+        auto SymSort = Entry->GetSort();
+        if(Entry->GetKind() == STENTRY_THEORY_FUNCTION ||
+           Entry->GetKind() == STENTRY_SYNTH_FUNCTION ||
+           Entry->GetKind() == STENTRY_USER_FUNCTION ||
+           Entry->GetKind() == STENTRY_UNINTERP_FUNCTION) {
+
+            auto SymFunSort = dynamic_cast<const FunSortExpr*>(SymSort);
+            return SymFunSort->GetRetSort();
+        } else {
+            return SymSort;
+        }
     }
 
     const string& SymbolGTerm::GetSymbol() const
@@ -1272,17 +1429,41 @@ namespace SynthLib2Parser {
         }
     }
 
-    void FunGTerm::Accept(ASTVisitorBase* Visitor) const 
+    void FunGTerm::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitFunGTerm(this);
     }
 
-    ASTBase* FunGTerm::Clone() const 
+    ASTBase* FunGTerm::Clone() const
     {
         return new FunGTerm(Location, FunName,
                             CloneVector(Args));
     }
-                       
+
+    const SortExpr* FunGTerm::GetTermSort(SymbolTable* SymTab) const
+    {
+        const u32 NumArgs = Args.size();
+        vector<const SortExpr*> ArgSorts(NumArgs);
+
+        for(u32 i = 0; i < NumArgs; ++i) {
+            ArgSorts[i] = Args[i]->GetTermSort(SymTab);
+        }
+
+
+        auto Entry = SymTab->LookupFun(FunName, ArgSorts);
+        if(Entry == NULL) {
+            throw SynthLib2ParserException("Could not resolve identifier \"" +
+                                           FunName + "\"");
+        }
+        auto EntrySort = Entry->GetSort();
+        auto EntryFunSort = dynamic_cast<const FunSortExpr*>(EntrySort);
+        if(EntryFunSort == NULL) {
+            throw SynthLib2ParserException("Identifier \"" + FunName + "\" does not " +
+                                           "refer to a function, but is used as one");
+        }
+        return EntryFunSort->GetRetSort();
+    }
+
     const string& FunGTerm::GetName() const
     {
         return FunName;
@@ -1305,15 +1486,20 @@ namespace SynthLib2Parser {
         delete TheLiteral;
     }
 
-    void LiteralGTerm::Accept(ASTVisitorBase* Visitor) const 
+    void LiteralGTerm::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitLiteralGTerm(this);
     }
 
-    ASTBase* LiteralGTerm::Clone() const 
+    ASTBase* LiteralGTerm::Clone() const
     {
         return new LiteralGTerm(Location,
                                 static_cast<Literal*>(TheLiteral->Clone()));
+    }
+
+    const SortExpr* LiteralGTerm::GetTermSort(SymbolTable* SymTab) const
+    {
+        return TheLiteral->GetSort(SymTab);
     }
 
     Literal* LiteralGTerm::GetLiteral() const
@@ -1333,15 +1519,20 @@ namespace SynthLib2Parser {
         delete ConstantSort;
     }
 
-    void ConstantGTerm::Accept(ASTVisitorBase* Visitor) const 
+    void ConstantGTerm::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitConstantGTerm(this);
     }
 
-    ASTBase* ConstantGTerm::Clone() const 
+    ASTBase* ConstantGTerm::Clone() const
     {
-        return new ConstantGTerm(Location, 
+        return new ConstantGTerm(Location,
                                  static_cast<const SortExpr*>(ConstantSort->Clone()));
+    }
+
+    const SortExpr* ConstantGTerm::GetTermSort(SymbolTable* SymTab) const
+    {
+        return ConstantSort;
     }
 
     const SortExpr* ConstantGTerm::GetSort() const
@@ -1363,15 +1554,20 @@ namespace SynthLib2Parser {
         delete VariableSort;
     }
 
-    void VariableGTerm::Accept(ASTVisitorBase* Visitor) const 
+    void VariableGTerm::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitVariableGTerm(this);
     }
 
-    ASTBase* VariableGTerm::Clone() const 
+    ASTBase* VariableGTerm::Clone() const
     {
         return new VariableGTerm(Location, static_cast<const SortExpr*>(VariableSort->Clone()),
                                  Kind);
+    }
+
+    const SortExpr* VariableGTerm::GetTermSort(SymbolTable* SymTab) const
+    {
+        return VariableSort;
     }
 
     const SortExpr* VariableGTerm::GetSort() const
@@ -1388,7 +1584,7 @@ namespace SynthLib2Parser {
                                      const string& VarName,
                                      const SortExpr* VarSort,
                                      GTerm* BoundToTerm)
-        : ASTBase(Location), VarName(VarName), 
+        : ASTBase(Location), VarName(VarName),
           VarSort(VarSort), BoundToTerm(BoundToTerm)
     {
         // Nothing here
@@ -1429,10 +1625,12 @@ namespace SynthLib2Parser {
 
     LetGTerm::LetGTerm(const SourceLocation& Location,
                        const vector<LetBindingGTerm*>& Bindings,
-                       GTerm* BoundInTerm)
+                       GTerm* BoundInTerm,
+                       SymbolTableScope* Scope)
         : GTerm(Location, GTERMKIND_LET),
           Bindings(Bindings),
-          BoundInTerm(BoundInTerm)
+          BoundInTerm(BoundInTerm),
+          Scope(Scope)
     {
         // Nothing here
     }
@@ -1442,19 +1640,29 @@ namespace SynthLib2Parser {
         for(auto const& Binding : Bindings) {
             delete Binding;
         }
-        
+
         delete BoundInTerm;
+        delete Scope;
     }
 
-    void LetGTerm::Accept(ASTVisitorBase* Visitor) const 
+    void LetGTerm::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitLetGTerm(this);
     }
 
-    ASTBase* LetGTerm::Clone() const 
+    ASTBase* LetGTerm::Clone() const
     {
         return new LetGTerm(Location, CloneVector(Bindings),
-                            static_cast<GTerm*>(BoundInTerm->Clone()));
+                            static_cast<GTerm*>(BoundInTerm->Clone()),
+                            Scope->Clone());
+    }
+
+    const SortExpr* LetGTerm::GetTermSort(SymbolTable* SymTab) const
+    {
+        SymTab->Push(Scope);
+        auto Retval = BoundInTerm->GetTermSort(SymTab);
+        SymTab->Pop();
+        return Retval;
     }
 
     const vector<LetBindingGTerm*>& LetGTerm::GetBindings() const
@@ -1467,6 +1675,10 @@ namespace SynthLib2Parser {
         return BoundInTerm;
     }
 
+    SymbolTableScope* LetGTerm::GetScope() const
+    {
+        return Scope;
+    }
 
     NTDef::NTDef(const SourceLocation& Location,
                  const string& Symbol,
@@ -1487,7 +1699,7 @@ namespace SynthLib2Parser {
         }
     }
 
-    void NTDef::Accept(ASTVisitorBase* Visitor) const 
+    void NTDef::Accept(ASTVisitorBase* Visitor) const
     {
         Visitor->VisitNTDef(this);
     }
@@ -1501,7 +1713,7 @@ namespace SynthLib2Parser {
     const string& NTDef::GetName() const
     {
         return Symbol;
-    } 
+    }
 
     const SortExpr* NTDef::GetSort() const
     {
@@ -1566,7 +1778,7 @@ namespace SynthLib2Parser {
         ASPair->GetSort()->Accept(this);
     }
 
-    void ASTVisitorBase::VisitFunDefCmd(const FunDefCmd* Cmd) 
+    void ASTVisitorBase::VisitFunDefCmd(const FunDefCmd* Cmd)
     {
         // Visit the args
         auto const& Args = Cmd->GetArgs();
@@ -1779,7 +1991,7 @@ namespace SynthLib2Parser {
     }
 
     SynthLib2Parser::SynthLib2Parser()
-        : TheProgram(NULL),
+        : TheProgram(NULL), TheSymbolTable(NULL),
           ParseComplete(false)
     {
         // Nothing here
@@ -1790,21 +2002,48 @@ namespace SynthLib2Parser {
         if(TheProgram != NULL) {
             delete TheProgram;
             TheProgram = NULL;
-        } 
+        }
+        if(TheSymbolTable != NULL) {
+            delete TheSymbolTable;
+            TheSymbolTable = NULL;
+        }
     }
 
-    void SynthLib2Parser::operator () (const string& FileName)
+    void SynthLib2Parser::operator () (const string& FileName,
+                                       bool Pedantic)
     {
         if(TheProgram != NULL) {
             delete TheProgram;
             TheProgram = NULL;
         }
+        if(TheSymbolTable != NULL) {
+            delete TheSymbolTable;
+            TheSymbolTable = NULL;
+        }
+
 
         yyin = fopen(FileName.c_str(), "r");
-        (*this)(yyin);
+        if (yyin == NULL) {
+            throw SynthLib2ParserException("Could not open input file \"" + FileName + "\"");
+        }
+        if(yyparse() != 0) {
+            throw SynthLib2ParserException("Error parsing input file \"" + FileName + "\"");
+        }
+
+        fclose(yyin);
+
+        TheProgram = SynthLib2Bison::TheProgram;
+        TheSymbolTable = new SymbolTable();
+
+        LogicSymbolLoader::LoadAll(TheSymbolTable);
+        SymtabBuilder::Do(TheProgram, TheSymbolTable);
+        LogicSymbolLoader::Reset();
+
+        SynthLib2Bison::TheProgram = NULL;
     }
 
-    void SynthLib2Parser::operator () (FILE* Handle)
+    void SynthLib2Parser::operator () (FILE* Handle,
+                                       bool Pedantic)
     {
         if (Handle == NULL) {
             throw SynthLib2ParserException("Cannot parse NULL handle");
@@ -1814,32 +2053,45 @@ namespace SynthLib2Parser {
             delete TheProgram;
             TheProgram = NULL;
         }
+        if(TheSymbolTable != NULL) {
+            delete TheSymbolTable;
+            TheSymbolTable = NULL;
+        }
+
         yyin = Handle;
-        
+
         if(yyparse() != 0) {
             throw SynthLib2ParserException("Error parsing input file via handle");
         }
 
-        fclose(yyin);
-        yylex_destroy();
-        
         // Not ours to close;
-        
+
         TheProgram = SynthLib2Bison::TheProgram;
+        TheSymbolTable = new SymbolTable();
+
+        LogicSymbolLoader::LoadAll(TheSymbolTable);
+        SymtabBuilder::Do(TheProgram, TheSymbolTable);
+        LogicSymbolLoader::Reset();
+
         SynthLib2Bison::TheProgram = NULL;
     }
 
     Program* SynthLib2Parser::GetProgram() const
     {
         if(TheProgram == NULL) {
-            throw SynthLib2ParserException((string)"SynthLib2Parser: No program parsed yet!" + 
+            throw SynthLib2ParserException((string)"SynthLib2Parser: No program parsed yet!" +
                                            " But SynthLib2Parser::GetProgram() called");
         }
         return TheProgram;
     }
 
+    SymbolTable* SynthLib2Parser::GetSymbolTable() const
+    {
+        if(TheSymbolTable == NULL) {
+            throw SynthLib2ParserException((string)"SynthLib2Parser: No program parsed yet!" +
+                                           " But SynthLib2Parser::GetSymbolTable() called");
+        }
+        return TheSymbolTable;
+    }
+
 } /* end namespace */
-
-
-// 
-// SynthLib2ParserAST.cpp ends here

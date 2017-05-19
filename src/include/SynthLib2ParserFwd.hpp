@@ -1,13 +1,13 @@
-// SynthLib2ParserFwd.hpp --- 
-// 
+// SynthLib2ParserFwd.hpp ---
+//
 // Filename: SynthLib2ParserFwd.hpp
 // Author: Abhishek Udupa
-// Created: Sat Jan 18 16:42:17 2014 (-0500)
-// 
-// 
+// Created: Sat Jan 18 16:42:37 2014 (-0500)
+//
+//
 // Copyright (c) 2013, Abhishek Udupa, University of Pennsylvania
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
 // 1. Redistributions of source code must retain the above copyright
@@ -21,7 +21,7 @@
 // 4. Neither the name of the University of Pennsylvania nor the
 //    names of its contributors may be used to endorse or promote products
 //    derived from this software without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 // WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -32,11 +32,8 @@
 // ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
-// 
-
-// Code:
-
+//
+//
 
 #if !defined __SYNTHLIB2_PARSER_FWD_HPP
 #define __SYNTHLIB2_PARSER_FWD_HPP
@@ -52,6 +49,7 @@ namespace SynthLib2Parser {
     class ASTBase;
     // Base class for all commands
     class ASTCmd;
+
     // enum for command kinds
     enum ASTCmdKind {
         CMD_FUNDEF,
@@ -64,7 +62,7 @@ namespace SynthLib2Parser {
         CMD_SETLOGIC,
         CMD_CHECKSYNTH
     };
-    
+
     // Commands
     class SetLogicCmd;
     class FunDefCmd;
@@ -81,7 +79,7 @@ namespace SynthLib2Parser {
     enum SortKind {
         SORTKIND_INT,
         SORTKIND_BV,
-        SORTKIND_ARRAY, 
+        SORTKIND_ARRAY,
         SORTKIND_REAL,
         SORTKIND_BOOL,
         SORTKIND_FUN,
@@ -96,7 +94,7 @@ namespace SynthLib2Parser {
     class RealSortExpr;
     class FunSortExpr;
     class BoolSortExpr;
-    
+
     // Terms and such
     // Base class for all terms
     class Term;
@@ -107,7 +105,7 @@ namespace SynthLib2Parser {
         TERMKIND_SYMBOL,
         TERMKIND_LET
     };
-    
+
     class FunTerm;
     class LiteralTerm;
     class SymbolTerm;
@@ -139,18 +137,22 @@ namespace SynthLib2Parser {
     class LetGTerm;
 
     class NTDef;
-    
+
     // Literals
     class Literal;
 
     // Arg sort pair
     class ArgSortPair;
-    
+
     typedef vector<ArgSortPair*> ArgList;
 
     // Visitors
     class ASTVisitorBase;
-    
+
+    // Symbol tables
+    class SymbolTable;
+    class SymbolTableScope;
+    class SymbolTableEntry;
 
     // printing
     extern ostream& operator << (ostream& Out, const ASTBase& AST);
@@ -159,7 +161,3 @@ namespace SynthLib2Parser {
 } /* end namespace */
 
 #endif /* __SYNTHLIB2PARSER_FWD_HPP */
-
-
-// 
-// SynthLib2ParserFwd.hpp ends here

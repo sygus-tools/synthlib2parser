@@ -1,6 +1,6 @@
-// PrintVisitor.hpp ---
+// SymtabBuilder.hpp ---
 //
-// Filename: PrintVisitor.hpp
+// Filename: SymtabBuilder.hpp
 // Author: Abhishek Udupa
 // Created: Sat Jan 18 16:42:37 2014 (-0500)
 //
@@ -35,24 +35,24 @@
 //
 //
 
-#if !defined __SYNTHLIB2_PARSER_PRINT_VISITOR_HPP
-#define __SYNTHLIB2_PARSER_PRINT_VISITOR_HPP
+#if !defined __SYNTHLIB2_PARSER_SYMTAB_BUILDER_HPP
+#define __SYNTHLIB2_PARSER_SYMTAB_BUILDER_HPP
 
 #include "SynthLib2ParserFwd.hpp"
 #include "SynthLib2ParserIFace.hpp"
+#include "SymbolTable.hpp"
 
 namespace SynthLib2Parser {
 
-    class PrintVisitor : public ASTVisitorBase
+    class SymtabBuilder : public ASTVisitorBase
     {
     private:
-        u32 IndentLevel;
-        inline string GetIndent();
-        ostream& Out;
+        SymbolTable* TheSymbolTable;
+        vector<SortExpr*> SortStack;
 
     public:
-        PrintVisitor(ostream& Out);
-        virtual ~PrintVisitor();
+        SymtabBuilder(SymbolTable* TheSymbolTable);
+        virtual ~SymtabBuilder();
 
         virtual void VisitProgram(const Program* Prog) override;
 
@@ -94,8 +94,11 @@ namespace SynthLib2Parser {
 
         virtual void VisitNTDef(const NTDef* Def) override;
         virtual void VisitLiteral(const Literal* TheLiteral) override;
+
+        static void Do(const Program* Prog, SymbolTable* TheSymbolTable);
     };
 
 } /* end namespace */
 
-#endif /* __SYNTHLIB2_PARSER_PRINT_VISITOR_HPP */
+
+#endif /* __SYNTHLIB2_PARSER_SYMTAB_BUILDER_HPP */

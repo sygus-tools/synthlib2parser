@@ -1,13 +1,13 @@
-// SynthLib2ParserExceptions.hpp --- 
-// 
+// SynthLib2ParserExceptions.hpp ---
+//
 // Filename: SynthLib2ParserExceptions.hpp
 // Author: Abhishek Udupa
-// Created: Sat Jan 18 16:42:13 2014 (-0500)
-// 
-// 
+// Created: Sat Jan 18 16:42:37 2014 (-0500)
+//
+//
 // Copyright (c) 2013, Abhishek Udupa, University of Pennsylvania
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
 // 1. Redistributions of source code must retain the above copyright
@@ -21,7 +21,7 @@
 // 4. Neither the name of the University of Pennsylvania nor the
 //    names of its contributors may be used to endorse or promote products
 //    derived from this software without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 // WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -32,11 +32,8 @@
 // ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
-// 
-
-// Code:
-
+//
+//
 
 #if !defined __SYNTH_LIB2_PARSER_EXCEPTIONS_HPP
 #define __SYNTH_LIB2_PARSER_EXCEPTIONS_HPP
@@ -63,6 +60,13 @@ namespace SynthLib2Parser {
         const string& GetExceptionInfo() const;
     };
 
+    class SymbolTableException : public SynthLib2ParserException
+    {
+    public:
+        SymbolTableException(const string& ExceptionInfo);
+        virtual ~SymbolTableException() noexcept (true);
+    };
+
     class MalformedLiteralException : public SynthLib2ParserException
     {
     public:
@@ -75,6 +79,3 @@ namespace SynthLib2Parser {
 } /* End namespace */
 
 #endif /* __SYNTH_LIB2_PARSER_EXCEPTIONS_H */
-
-// 
-// SynthLib2ParserExceptions.hpp ends here

@@ -35,10 +35,7 @@
 // 
 // 
 
-// Code:
-
-
-#include "include/SynthLib2ParserExceptions.hpp"
+#include <SynthLib2ParserExceptions.hpp>
 
 namespace SynthLib2Parser {
 
@@ -64,6 +61,17 @@ namespace SynthLib2Parser {
         return ExceptionInfo.c_str();
     }
 
+    SymbolTableException::SymbolTableException(const string& ExceptionInfo)
+        : SynthLib2ParserException(ExceptionInfo)
+    {
+        // Nothing here
+    }
+
+    SymbolTableException::~SymbolTableException() noexcept (true)
+    {
+        // Nothing here
+    }
+
     MalformedLiteralException::MalformedLiteralException(const string& LiteralString,
                                                          const string& Suffix)
     {
@@ -72,7 +80,7 @@ namespace SynthLib2Parser {
         sstr << "Details: " << Suffix;
         ExceptionInfo = sstr.str();
     }
-    
+
     MalformedLiteralException::~MalformedLiteralException() noexcept (true)
     {
         // Nothing here
@@ -85,7 +93,3 @@ namespace SynthLib2Parser {
     }
 
 } /* End namespace */
-
-
-// 
-// SynthLib2ParserExceptions.cpp ends here

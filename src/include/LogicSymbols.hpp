@@ -1,6 +1,6 @@
-// SynthLib2ParserCommon.hpp ---
+// LogicSymbols.hpp ---
 //
-// Filename: SynthLib2ParserCommon.hpp
+// Filename: LogicSymbols.hpp
 // Author: Abhishek Udupa
 // Created: Sat Jan 18 16:42:37 2014 (-0500)
 //
@@ -35,35 +35,55 @@
 //
 //
 
-#if !defined __SYNTHLIB2_PARSER_COMMON_HPP
-#define __SYNTHLIB2_PARSER_COMMON_HPP
+#if !defined __SYNTHLIB2_PARSER_LOGIC_SYMBOLS_HPP
+#define __SYNTHLIB2_PARSER_LOGIC_SYMBOLS_HPP
 
-#include <cstdio>
-#include <cstdlib>
-#include <iostream>
-#include <iomanip>
-#include <sstream>
-#include <fstream>
-#include <vector>
-#include <map>
-#include <set>
-#include <unordered_map>
+#include "SynthLib2ParserFwd.hpp"
+#include <boost/functional/hash.hpp>
 #include <unordered_set>
-#include <inttypes.h>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/split.hpp>
 
-using namespace std;
 
-// useful typedefs
-typedef int8_t i8;
-typedef uint8_t u8;
-typedef int16_t i16;
-typedef uint16_t u16;
-typedef int32_t i32;
-typedef uint32_t u32;
-typedef int64_t i64;
-typedef uint64_t u64;
+// Change this to support larger bitvectors
+#define SYNTHLIB2PARSER_MAX_BV_LEN (64)
 
-#endif /* __SYNTHLIB2_PARSER_COMMON_HPP */
+namespace SynthLib2Parser {
+
+    class SortExprPtrEquals
+    {
+    public:
+        bool operator () (const SortExpr* SortPtr1, const SortExpr* SortPtr2) const;
+    };
+
+    class SortExprPtrHash
+    {
+    public:
+        u32 operator () (const SortExpr* SortPtr) const;
+    };
+
+    typedef unordered_set<const SortExpr*, SortExprPtrHash, SortExprPtrEquals> SortExprPtrSet;
+
+    class LogicSymbolLoader
+    {
+    private:
+        static SortExprPtrSet RegisteredTypes;
+        static bool BVLoaded;
+
+    public:
+        static void LoadLIA(SymbolTable* SymTab);
+        static void LoadBV(SymbolTable* SymTab, u32 Size);
+        static void LoadReal(SymbolTable* SymTab);
+        static void LoadArrays(SymbolTable* SymTab, const ArraySortExpr* Sort);
+        static void LoadCore(SymbolTable* SymTab);
+
+        static void LoadAll(SymbolTable* SymTab);
+
+        // Callback whenever a new type is registered
+        // Should be called only for array types
+        static void RegisterSort(SymbolTable* SymTab,
+                                 const SortExpr* NewSort);
+        static void Reset();
+    };
+
+} /* end namespace */
+
+#endif /* __SYNTHLIB2_PARSER_LOGIC_SYMBOLS_HPP */
