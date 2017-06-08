@@ -21,7 +21,7 @@ using namespace SynthLib2Parser;
 
 int main(int argc, char* argv[])
 {
-    SynthLib2Parser::SynthLib2Parser Parser;
+    ::SynthLib2Parser::SynthLib2Parser Parser;
     try {
         Parser(argv[1]);
     } catch (const exception& Ex) {

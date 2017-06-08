@@ -40,6 +40,8 @@
 
 #include "include/SynthLib2ParserExceptions.hpp"
 
+using namespace std;
+
 namespace SynthLib2Parser {
 
     SynthLib2ParserException::SynthLib2ParserException()

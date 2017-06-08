@@ -5,7 +5,6 @@
     #include <string.h>
     #include <boost/lexical_cast.hpp>
     
-    using namespace std;
     using namespace SynthLib2Parser;
 
     namespace SynthLib2Bison {
@@ -19,11 +18,11 @@
     extern int yylex(void);
     int yyerror(char* s)
     {
-        cerr << "Parse error: Last token read was: '" << yytext
+        std::cerr << "Parse error: Last token read was: '" << yytext
              << "' at line: " << yylinenum << ", column: " 
-             << yycolnum - strlen(yytext) << endl;
-        cerr.flush();
-        exit(1);
+             << yycolnum - std::strlen(yytext) << endl;
+        std::cerr.flush();
+        std::exit(1);
     }
 
     static inline SourceLocation GetCurrentLocation()
@@ -34,29 +33,29 @@
 
 %union {
     // yyunion fields
-    string* LexerString;
-    pair<string, string>* EnumConstant;
+    std::string* LexerString;
+    pair<std::string, std::string>* EnumConstant;
     const SortExpr* TheSortExpr;
     Literal* TheLiteral;
-    vector<string>* SymbolVector;
+    std::vector<std::string>* SymbolVector;
     ArgSortPair* SymbolSortPair;
-    vector<const SortExpr*>* SortVector;
-    vector<ArgSortPair*>* SymbolSortVector;
-    pair<string, string>* SymbolSymbolPair;
-    vector<pair<string, string> >* SymbolSymbolVector;
+    std::vector<const SortExpr*>* SortVector;
+    std::vector<ArgSortPair*>* SymbolSortVector;
+    std::pair<std::string, std::string>* SymbolSymbolPair;
+    std::vector<pair<std::string, std::string> >* SymbolSymbolVector;
     Term* TheTerm;
-    vector<Term*>* TermVector;
+    std::vector<Term*>* TermVector;
     LetBindingTerm* STPair;
-    vector<LetBindingTerm*>* STPairVector;
-    vector<NTDef*>* NTDefVector;
+    std::vector<LetBindingTerm*>* STPairVector;
+    std::vector<NTDef*>* NTDefVector;
     NTDef* TheNTDef;
     GTerm* TheGTerm;
-    vector<GTerm*>* GTermVector;
+    std::vector<GTerm*>* GTermVector;
     LetBindingGTerm* SGPair;
-    vector<LetBindingGTerm*>* SGPairVector;
+    std::vector<LetBindingGTerm*>* SGPairVector;
     Program* TheProgram;
     ASTCmd* TheCmd;
-    vector<ASTCmd*>* CmdList;
+    std::vector<ASTCmd*>* CmdList;
 }
 
 %token TK_DEFINE_SORT TK_DEFINE_FUN TK_DECLARE_FUN TK_SET_OPTIONS
@@ -109,14 +108,14 @@
 start : Prog
       { SynthLib2Bison::TheProgram = $1; }
       | /* epsilon */
-      {   
-          vector<ASTCmd*> Dummy;
+      {
+          std::vector<ASTCmd*> Dummy;
           SynthLib2Bison::TheProgram = new Program(Dummy);
       }
 
 Prog : SetLogicCmd CmdPlus
      { 
-         vector<ASTCmd*> AllCmds;
+         std::vector<ASTCmd*> AllCmds;
          AllCmds.push_back($1);
          AllCmds.insert(AllCmds.end(), $2->begin(), $2->end());
          delete $2;

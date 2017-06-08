@@ -46,31 +46,29 @@
 #include <iostream>
 #include <sstream>
 
-using namespace std;
-
 namespace SynthLib2Parser {
 
-    class SynthLib2ParserException : public exception
+    class SynthLib2ParserException : public std::exception
     {
     protected:
-        string ExceptionInfo;
+        std::string ExceptionInfo;
 
     public:
         SynthLib2ParserException();
-        SynthLib2ParserException(const string& ExceptionInfo);
+        SynthLib2ParserException(const std::string& ExceptionInfo);
         virtual ~SynthLib2ParserException() noexcept (true);
         virtual const char* what() const throw() override;
-        const string& GetExceptionInfo() const;
+        const std::string& GetExceptionInfo() const;
     };
 
     class MalformedLiteralException : public SynthLib2ParserException
     {
     public:
-        MalformedLiteralException(const string& LiteralString, const string& Suffix);
+        MalformedLiteralException(const std::string& LiteralString, const std::string& Suffix);
         virtual ~MalformedLiteralException() noexcept (true);
     };
 
-    extern ostream& operator << (ostream& str, const SynthLib2ParserException& Exc);
+    extern std::ostream& operator << (std::ostream& str, const SynthLib2ParserException& Exc);
 
 } /* End namespace */
 
